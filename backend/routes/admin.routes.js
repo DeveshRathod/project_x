@@ -10,8 +10,13 @@ import {
   getAllNonAdminUsers,
   getAllProduct,
   getDashboard,
+  getLatestOrders,
+  getOrder,
+  getOrders,
+  getOutOfStock,
   getProduct,
   removeBrand,
+  updateOrder,
   updateProduct,
 } from "../controllers/admin.controller.js";
 
@@ -29,5 +34,9 @@ router.get("/getUsers", verifyUser, getAllNonAdminUsers);
 router.get("/getDashboardDetails", verifyUser, getDashboard);
 router.delete("/deleteUser", verifyUser, deleteUser);
 router.post("/addUser", verifyUser, addUser);
+router.get("/getOrders", verifyUser, getOrders);
+router.post("/getOrder", verifyUser, getOrder);
+router.get("/getLatestOrders", verifyUser, getLatestOrders);
+router.get("/getOutOfStock", verifyUser, getOutOfStock);
 
 export default router;

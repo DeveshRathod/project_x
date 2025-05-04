@@ -22,9 +22,9 @@ const LatestProducts = ({ latestProducts }) => {
           </header>
           <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {latestProducts.slice(0, 4).map((product) => (
-              <li key={product._id} className="shadow-md rounded-lg">
+              <li key={product.id} className="shadow-md rounded-lg">
                 <Link
-                  to={`/product/${product._id}/0`}
+                  to={`/product/${product.id}/0`}
                   className="group block overflow-hidden w-full"
                 >
                   <img

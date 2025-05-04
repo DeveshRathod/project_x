@@ -1,3 +1,4 @@
+import { Op, fn, col, where } from "sequelize";
 import Brand from "../database/models/brands.model.js";
 import Product from "../database/models/product.model.js";
 import User from "../database/models/user.model.js";
@@ -79,7 +80,7 @@ export const exploreProducts = async (req, res) => {
 
 export const addCart = async (req, res) => {
   const userId = req.user.id;
-  const { productId, colorIndex } = req.body;
+  const { id, colorIndex } = req.body;
 
   try {
     const user = await User.findByPk(userId);
@@ -87,7 +88,7 @@ export const addCart = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const product = await Product.findByPk(productId);
+    const product = await Product.findByPk(id);
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
@@ -105,7 +106,7 @@ export const addCart = async (req, res) => {
 
     // Explicitly create the cart item object
     const newCartItem = {
-      productId,
+      id: id,
       name: product.name,
       image,
       colorName,
@@ -222,9 +223,9 @@ export const getLatestFurnitureProduct = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    if (!latestFurnitureProduct) {
-      return res.status(404).json({ message: "No furniture products found" });
-    }
+    // if (!latestFurnitureProduct) {
+    //   return res.status(300).json({ message: "No furniture products found" });
+    // }
 
     return res.status(200).json(latestFurnitureProduct);
   } catch (error) {
@@ -243,7 +244,7 @@ export const getAllFashion = async (req, res) => {
     });
 
     if (!latestProduct) {
-      return res.status(404).json({ message: "No fashion products found" });
+      return res.status(200).json({ resultArray: {}, brand: [] });
     }
 
     const { brand } = latestProduct;
@@ -297,13 +298,25 @@ export const suggestion = async (req, res) => {
   }
 
   try {
+    const lowerQuery = searchQuery.toLowerCase();
+
     const products = await Product.findAll({
       where: {
         [Op.or]: [
-          { name: { [Op.iLike]: `%${searchQuery}%` } },
-          { brand: { [Op.iLike]: `%${searchQuery}%` } },
+          where(fn("LOWER", col("Product.name")), {
+            [Op.like]: `%${lowerQuery}%`,
+          }),
+          where(fn("LOWER", col("Brand.name")), {
+            [Op.like]: `%${lowerQuery}%`,
+          }),
         ],
       },
+      include: [
+        {
+          model: Brand,
+          attributes: ["name"], // optional: include brand name in result
+        },
+      ],
       limit: 4,
     });
 
@@ -313,6 +326,7 @@ export const suggestion = async (req, res) => {
       return {
         name: product.name,
         price: discountedPrice.toFixed(2),
+        brand: product.Brand?.name || "Unknown", // optional
       };
     });
 

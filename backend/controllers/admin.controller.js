@@ -2,7 +2,11 @@ import Brand from "../database/models/brands.model.js";
 import Product from "../database/models/product.model.js";
 import User from "../database/models/user.model.js";
 import Order from "../database/models/order.model.js";
-import { Op } from "sequelize";
+import { Op, fn, col, where } from "sequelize";
+import { format } from "date-fns";
+import { v4 as uuidv4 } from "uuid";
+
+import Address from "../database/models/address.model.js";
 
 export const addBrand = async (req, res) => {
   const { name, url } = req.body;
@@ -265,22 +269,26 @@ export const getAllProduct = async (req, res) => {
   try {
     const { searchQuery, category } = req.query;
 
-    const where = {};
+    const whereClause = {};
 
     if (searchQuery) {
-      where[Op.or] = [
-        { name: { [Op.iLike]: `%${searchQuery}%` } },
-        { description: { [Op.iLike]: `%${searchQuery}%` } },
-        // You can also join and search brand name if needed
+      const lowerQuery = `%${searchQuery.toLowerCase()}%`;
+      whereClause[Op.or] = [
+        where(fn("LOWER", col("Product.name")), {
+          [Op.like]: lowerQuery,
+        }),
+        where(fn("LOWER", col("Product.description")), {
+          [Op.like]: lowerQuery,
+        }),
       ];
     }
 
     if (category) {
-      where.category = category;
+      whereClause.category = category;
     }
 
     const products = await Product.findAll({
-      where,
+      where: whereClause,
       include: [
         {
           model: Brand,
@@ -317,14 +325,14 @@ export const getDashboard = async (req, res) => {
     const pendingOrdersCount = await Order.count({
       where: {
         status: {
-          [Op.in]: ["Placed", "Shipped"],
+          [Op.in]: ["Placed"],
         },
       },
     });
 
     const completedOrdersCount = await Order.count({
       where: {
-        status: "Completed",
+        status: "Delivered",
       },
     });
 
@@ -407,11 +415,27 @@ export const getAllNonAdminUsers = async (req, res) => {
     };
 
     if (searchquery) {
-      const search = `%${searchquery}%`;
+      const lowerQuery = searchquery.toLowerCase();
+
       where[Op.or] = [
-        { username: { [Op.iLike]: search } },
-        { email: { [Op.iLike]: search } },
-        { mobile: { [Op.iLike]: search } },
+        {
+          username: {
+            [Op.like]: fn("LOWER", col("username")),
+            [Op.like]: `%${lowerQuery}%`,
+          },
+        },
+        {
+          email: {
+            [Op.like]: fn("LOWER", col("email")),
+            [Op.like]: `%${lowerQuery}%`,
+          },
+        },
+        {
+          mobile: {
+            [Op.like]: fn("LOWER", col("mobile")),
+            [Op.like]: `%${lowerQuery}%`,
+          },
+        },
       ];
     }
 
@@ -422,7 +446,21 @@ export const getAllNonAdminUsers = async (req, res) => {
       offset,
     });
 
-    return res.status(200).json(users);
+    const userSuggestions = users.map((user) => {
+      return {
+        username: user.username,
+        email: user.email,
+        mobile: user.mobile,
+        gender: user.gender,
+        profile: user.profile,
+        birthday: user.birthday
+          ? format(new Date(user.birthday), "yyyy-MM-dd")
+          : null, // Format birthday
+        createdAt: format(new Date(user.createdAt), "yyyy-MM-dd HH:mm:ss"),
+      };
+    });
+
+    return res.status(200).json(userSuggestions);
   } catch (error) {
     console.error("Error fetching non-admin users:", error);
     return res.status(500).json({ message: "Failed to fetch non-admin users" });
@@ -467,5 +505,276 @@ export const addUser = async (req, res) => {
   } catch (error) {
     console.error("Error adding user:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getOrders = async (req, res) => {
+  const isAdmin = req.user?.isAdmin;
+  if (!isAdmin) {
+    return res.status(403).json({
+      message: "Only Admin can access this information",
+    });
+  }
+
+  const {
+    searchquery,
+    page = 1,
+    sortField = "createdAt",
+    sortOrder = "desc",
+  } = req.query;
+
+  const limit = 11;
+  const offset = (parseInt(page) - 1) * limit;
+
+  try {
+    const where = {};
+
+    if (searchquery) {
+      const trimmedQuery = searchquery.trim();
+      where[Op.or] = [
+        {
+          userId: {
+            [Op.like]: `%${trimmedQuery}%`,
+          },
+        },
+        {
+          orderId: {
+            [Op.like]: `%${trimmedQuery}%`,
+          },
+        },
+        {
+          transactionId: {
+            [Op.like]: `%${trimmedQuery}%`,
+          },
+        },
+        {
+          status: {
+            [Op.like]: `%${trimmedQuery}%`,
+          },
+        },
+      ];
+    }
+
+    const orders = await Order.findAll({
+      where,
+      include: [
+        {
+          model: Address,
+          attributes: ["pincode"],
+        },
+      ],
+      order: [[sortField, sortOrder.toUpperCase()]],
+      limit,
+      offset,
+    });
+
+    const formattedOrders = orders.map((order) => ({
+      orderId: order.orderId,
+      transactionId: order.transactionId || "N/A",
+      amount: order.totalAmount,
+      userId: order.userId,
+      pincode: order.address?.pincode || "N/A",
+      date: format(new Date(order.createdAt), "yyyy-MM-dd HH:mm:ss"),
+      status: order.status,
+      payment: order.typeOfPayment,
+    }));
+
+    return res.status(200).json(formattedOrders);
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+const generateNotification = (message, sender) => {
+  return {
+    message,
+    sender,
+    date: new Date(),
+    notificationId: uuidv4(),
+    status: "Unread",
+  };
+};
+
+export const updateOrder = async (req, res) => {
+  const isAdmin = req.user?.isAdmin;
+  if (!isAdmin) {
+    return res.status(403).json({
+      message: "Only Admin can access this information",
+    });
+  }
+
+  const {
+    state,
+    orderId,
+    transactionId,
+    userId,
+    typeOfPayment,
+    products,
+    comment,
+  } = req.body;
+
+  try {
+    const order = await Order.findOne({ where: { orderId } });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Update the order status
+    order.status = state;
+    await order.save();
+
+    // Notify all admins
+    const admins = await User.findAll({ where: { isAdmin: true } });
+    const adminMsg = `Order with ID ${orderId} status updated to ${state}`;
+
+    await Promise.all(
+      admins.map(async (admin) => {
+        const existing = Array.isArray(admin.notifications)
+          ? admin.notifications
+          : [];
+        admin.notifications = [
+          ...existing,
+          generateNotification(adminMsg, "System (Admin)"),
+        ];
+        await admin.save();
+      })
+    );
+
+    // Notify the customer
+    const user = await User.findOne({ where: { id: userId } });
+    if (user) {
+      const existing = Array.isArray(user.notifications)
+        ? user.notifications
+        : [];
+
+      let userMsg = `Your order with ID ${orderId} has been ${state}.`;
+
+      // Refund notice
+      if (typeOfPayment === "Stripe" && state.toLowerCase() === "cancelled") {
+        userMsg += ` Refund for transaction ${transactionId} will be processed within 4-7 business days.`;
+      }
+
+      const userNotifications = [
+        ...existing,
+        generateNotification(userMsg, "System (Admin)"),
+      ];
+
+      // Optional comment
+      if (comment && comment.trim() !== "") {
+        userNotifications.push(
+          generateNotification(
+            `Admin note for Order ${orderId}: ${comment.trim()}`,
+            "System (Admin)"
+          )
+        );
+      }
+
+      // Restock products if cancelled
+      if (state.toLowerCase() === "cancelled" && Array.isArray(products)) {
+        await Promise.all(
+          products.map(async (item) => {
+            const product = await Product.findOne({ where: { id: item.id } });
+            if (product) {
+              product.stock = product.stock + 1;
+              await product.save();
+            }
+          })
+        );
+      }
+
+      user.notifications = userNotifications;
+      await user.save();
+    }
+
+    return res.status(200).json({
+      message: `Order status updated to ${state}`,
+      order,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+export const getOrder = async (req, res) => {
+  const { orderId } = req.body;
+  const isAdmin = req.user?.isAdmin;
+  if (!isAdmin) {
+    return res.status(403).json({
+      message: "Only Admin can access this information",
+    });
+  }
+
+  try {
+    const order = await Order.findByPk(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    return res.status(200).json({ order });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+export const getLatestOrders = async (req, res) => {
+  const isAdmin = req.user?.isAdmin;
+  if (!isAdmin) {
+    return res.status(403).json({
+      message: "Only Admin can access this information",
+    });
+  }
+
+  try {
+    const latestOrders = await Order.findAll({
+      attributes: ["orderId", "typeOfPayment", "totalAmount"],
+      where: { status: "placed" },
+      order: [["createdAt", "DESC"]],
+      limit: 10,
+    });
+
+    return res.status(200).json({
+      latestOrders,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Server Error",
+    });
+  }
+};
+
+export const getOutOfStock = async (req, res) => {
+  const isAdmin = req.user?.isAdmin;
+  if (!isAdmin) {
+    return res.status(403).json({
+      message: "Only Admin can access this information",
+    });
+  }
+
+  try {
+    const outOfStockProducts = await Product.findAll({
+      where: { stock: 0 },
+      attributes: ["name", "discount"],
+      include: [
+        {
+          model: Brand,
+          attributes: ["name"],
+        },
+      ],
+    });
+
+    res.status(200).json({
+      outOfStockProducts,
+    });
+  } catch (error) {
+    console.error("Error fetching out-of-stock products:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };

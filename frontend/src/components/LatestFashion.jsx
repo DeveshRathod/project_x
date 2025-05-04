@@ -23,7 +23,7 @@ const LatestFashion = ({ fashionLatest }) => {
                 }`}
               >
                 <Link
-                  to={`/product/${item._id}/0`}
+                  to={`/product/${item.id}/0`}
                   className="group relative block"
                 >
                   <img

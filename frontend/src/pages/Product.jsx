@@ -26,7 +26,7 @@ const Product = () => {
 
   useEffect(() => {
     if (Array.isArray(cart)) {
-      const quantity = cart.filter((item) => item.productId === id).length;
+      const quantity = cart.filter((item) => item.id === id).length;
       setQuantity(quantity);
     }
   }, [cart, id]);
@@ -76,9 +76,11 @@ const Product = () => {
 
       const response = await axios.post(
         `${import.meta.env.VITE_API_BASE}/api/products/addToCart`,
-        { productId: id, colorIndex: color * 1 },
+        { id, colorIndex: color * 1 },
         { headers: { authorization: token } }
       );
+
+      console.log(response.data);
 
       dispatch(setCart(response.data));
       setQuantity(quantity + 1);
@@ -94,7 +96,7 @@ const Product = () => {
 
       const response = await axios.post(
         `${import.meta.env.VITE_API_BASE}/api/products/deleteCart`,
-        { colorIndex: color * 1, productId: id },
+        { colorIndex: color * 1, id },
         { headers: { authorization: token } }
       );
 
@@ -202,59 +204,61 @@ const Product = () => {
                   </div>
 
                   {/* Add to Cart and Buy Now */}
-                  {currentUser &&
-                    !currentUser.isAdmin &&
-                    product.stock > product.sold && (
-                      <div className="flex pr-2 pb-2 gap-2 mt-4 pt-2">
-                        {quantity >= 1 ? (
-                          <>
-                            <div>
-                              <label htmlFor="Quantity" className="sr-only">
-                                Quantity
-                              </label>
-                              <div className="flex items-center rounded border border-black">
-                                <button
-                                  type="button"
-                                  className="size-10 leading-10 text-black transition hover:opacity-75"
-                                  onClick={removeCart}
-                                >
-                                  -
-                                </button>
-                                <input
-                                  type="number"
-                                  id="Quantity"
-                                  value={quantity}
-                                  className="h-10 w-6 border-transparent text-center sm:text-sm outline-none"
-                                  readOnly
-                                />
-                                <button
-                                  type="button"
-                                  className="size-10 leading-10 text-black transition hover:opacity-75"
-                                  onClick={addToCart}
-                                >
-                                  +
-                                </button>
-                              </div>
+                  {currentUser && !currentUser.isAdmin && product.stock > 0 ? (
+                    <div className="flex pr-2 pb-2 gap-2 mt-4 pt-2">
+                      {quantity >= 1 ? (
+                        <>
+                          <div>
+                            <label htmlFor="Quantity" className="sr-only">
+                              Quantity
+                            </label>
+                            <div className="flex items-center rounded border border-black">
+                              <button
+                                type="button"
+                                className="size-10 leading-10 text-black transition hover:opacity-75"
+                                onClick={removeCart}
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                id="Quantity"
+                                value={quantity}
+                                className="h-10 w-6 border-transparent text-center sm:text-sm outline-none"
+                                readOnly
+                              />
+                              <button
+                                type="button"
+                                className="size-10 leading-10 text-black transition hover:opacity-75"
+                                onClick={addToCart}
+                              >
+                                +
+                              </button>
                             </div>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              className="px-3 py-2 rounded-md bg-black text-white border border-black hover:text-black hover:border hover:border-black hover:bg-white transition-all ease-in-out delay-75"
-                              onClick={addToCart}
-                            >
-                              Add to Cart
-                            </button>
-                          </>
-                        )}
-                        <Link
-                          to={`/buy/${product.id}/${color}`}
-                          className="px-3 py-2 rounded-md text-black border border-black hover:text-white hover:bg-black transition-all ease-in-out delay-75"
-                        >
-                          Buy Now
-                        </Link>
-                      </div>
-                    )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="px-3 py-2 rounded-md bg-black text-white border border-black hover:text-black hover:border hover:border-black hover:bg-white transition-all ease-in-out delay-75"
+                            onClick={addToCart}
+                          >
+                            Add to Cart
+                          </button>
+                        </>
+                      )}
+                      <Link
+                        to={`/buy/${product.id}/${color}`}
+                        className="px-3 py-2 rounded-md text-black border border-black hover:text-white hover:bg-black transition-all ease-in-out delay-75"
+                      >
+                        Buy Now
+                      </Link>
+                    </div>
+                  ) : (
+                    <p className="flex pr-2 pb-2 gap-2 mt-4 pt-2 text-red-600">
+                      Product not available for purchase.
+                    </p>
+                  )}
 
                   {/* Specifications */}
                   <div className="mt-4">

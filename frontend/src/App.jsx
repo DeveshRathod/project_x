@@ -18,6 +18,7 @@ import Brand from "./adminPages/Brand";
 import BuySingle from "./pages/BuySingle";
 import Order from "./pages/Order";
 import Messages from "./pages/Messages";
+import OrderDetails from "./adminPages/OrderDetails";
 
 const App = () => {
   return (
@@ -38,6 +39,10 @@ const App = () => {
         <Route element={<AdminPrivateRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/adminsetting" element={<Settings />} />
+          <Route
+            path="/order/orderDetails/:orderId"
+            element={<OrderDetails />}
+          />
           <Route path="/order" element={<Orders />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/users" element={<Users />} />

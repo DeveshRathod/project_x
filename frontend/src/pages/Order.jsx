@@ -41,7 +41,6 @@ const Order = () => {
         expanded: true,
       }));
       setOrders(ordersData);
-      console.log(ordersData);
       setIsEmpty(ordersData.length === 0);
     } catch (error) {
       setIsEmpty(true);

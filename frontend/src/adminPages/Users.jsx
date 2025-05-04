@@ -44,7 +44,7 @@ const Users = () => {
   }, [searchQuery, currentPage, showModal, undoData]);
 
   const getDate = (date) => {
-    return date.slice(0, 10);
+    return date;
   };
 
   const goToPrevPage = () => {

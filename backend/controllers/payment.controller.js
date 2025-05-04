@@ -4,6 +4,7 @@ import { sequelize } from "../database/connection.js";
 import Order from "../database/models/order.model.js";
 import User from "../database/models/user.model.js";
 import Address from "../database/models/address.model.js";
+import Product from "../database/models/product.model.js";
 
 const stripe = new Stripe(process.env.STRIPE_KEY);
 
@@ -152,6 +153,16 @@ export const pay = async (req, res) => {
           orders: [...(user.orders || []), createdOrderId],
         },
         { transaction }
+      );
+
+      await Promise.all(
+        product.map(async (item) => {
+          const dbProduct = await Product.findOne({ where: { id: item.id } });
+          if (dbProduct) {
+            dbProduct.stock = Math.max(0, dbProduct.stock - 1);
+            await dbProduct.save();
+          }
+        })
       );
 
       await transaction.commit();

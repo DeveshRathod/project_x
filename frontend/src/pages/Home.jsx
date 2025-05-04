@@ -27,7 +27,6 @@ const Home = () => {
         const res = await axios.get(
           `${import.meta.env.VITE_API_BASE}/api/products/getBrands`
         );
-        console.log("✅ Brands:", res.data);
         setBrands(res.data);
       } catch (err) {
         console.error("❌ Error fetching brands:", err);
@@ -44,7 +43,6 @@ const Home = () => {
         const res = await axios.get(
           `${import.meta.env.VITE_API_BASE}/api/products/newarrivals`
         );
-        console.log("🆕 New Arrivals:", res.data);
         setLatestProducts(res.data);
       } catch (err) {
         console.error("❌ Error fetching new arrivals:", err);
@@ -61,7 +59,6 @@ const Home = () => {
         const res = await axios.get(
           `${import.meta.env.VITE_API_BASE}/api/products/newFurniture`
         );
-        console.log("🪑 Latest Furniture:", res.data);
         setLatestSingleProduct(res.data);
       } catch (err) {
         console.error("❌ Error fetching latest furniture:", err);
@@ -78,7 +75,6 @@ const Home = () => {
         const res = await axios.get(
           `${import.meta.env.VITE_API_BASE}/api/products/newfashion`
         );
-        console.log("👕 Latest Fashion:", res.data);
         setFashionLatest(res.data);
       } catch (err) {
         console.error("❌ Error fetching latest fashion:", err);

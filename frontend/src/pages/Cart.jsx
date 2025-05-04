@@ -186,11 +186,7 @@ const Cart = () => {
           successURL: successPath,
           cancelURL: cancelPath,
         },
-        {
-          headers: {
-            authorization: `${token}`,
-          },
-        }
+        { headers: { authorization: token } }
       );
 
       window.location.href = response.data.url;
